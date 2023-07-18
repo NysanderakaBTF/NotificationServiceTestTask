@@ -1,0 +1,130 @@
+version: '3'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: notifications/Dockerfile
+    command: >
+      sh -c " python3 notifications/manage.py migrate
+              python3 notifications/manage.py runserver 0.0.0.0:8000"
+    container_name: backend
+    hostname: backend
+    tty: true
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./.env
+    restart: always
+    depends_on:
+      - db
+    #      - rabbitmq
+    #      - worker
+    #      - scheduler
+    networks:
+      - backend
+    volumes:
+      - .:/var/www
+
+  db:
+    image: postgres:15.3-alpine
+    container_name: database
+    restart: always
+    ports:
+      - "5432:5432"
+    env_file:
+      - ./.env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    networks:
+      - backend
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin4_container
+    restart: always
+    ports:
+      - "5050:80"
+    env_file:
+      - ./.env
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    depends_on:
+      - db
+    networks:
+      - backend
+
+#  flower:
+#    image: mher/flower
+#    container_name: celery_flower
+#    env_file:
+#      - ./.env
+#    ports:
+#      - "8888:8888"
+#      - "5555:5555"
+#    networks:
+#      - backend
+#    depends_on:
+#      - rabbitmq
+#      - worker
+#      - scheduler
+#
+#  rabbitmq:
+#    image: rabbitmq:3.8-management
+#    container_name: rabbitmq
+#    hostname: rabbitmq
+#    ports:
+#      - "5672:5672"
+#      - "15672:15672"
+#    volumes:
+#      - rabbitmq_data:/var/lib/rabbitmq/
+#    env_file:
+#      - ./.env
+#    networks:
+#      - backend
+#    restart: always
+#
+#  worker:
+#    build:
+#      context: .
+#      dockerfile: ./Dockerfile
+#    container_name: worker
+#    hostname: worker
+#    command: celery -A celery_app.celery_app worker --loglevel=info
+#    env_file:
+#      - ./.env
+#    depends_on:
+#      - db
+#      - rabbitmq
+#    volumes:
+#      - .:/var/www/
+#    networks:
+#      - backend
+#    restart: always
+#
+#  scheduler:
+#    build:
+#      context: .
+#      dockerfile: ./Dockerfile
+#    container_name: scheduler
+#    hostname: scheduler
+#    command: celery -A celery_app.celery_app beat --loglevel=info
+#    env_file:
+#      - ./.env
+#    depends_on:
+#      - db
+#      - rabbitmq
+#    volumes:
+#      - .:/var/www/
+#    networks:
+#      - backend
+#    restart: always
+
+networks:
+  backend:
+
+volumes:
+  postgres_data:
+  app:
+  pgadmin-data:
+  rabbitmq_data:
