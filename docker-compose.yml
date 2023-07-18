@@ -3,10 +3,11 @@ version: '3'
 services:
   backend:
     build:
-      context: .
-      dockerfile: notifications/Dockerfile
+      context: ./notifications
+      dockerfile: Dockerfile
     command: >
-      sh -c " python3 notifications/manage.py migrate
+      sh -c " python3 notifications/manage.py makemigrations
+              python3 notifications/manage.py migrate
               python3 notifications/manage.py runserver 0.0.0.0:8000"
     container_name: backend
     hostname: backend
@@ -18,9 +19,9 @@ services:
     restart: always
     depends_on:
       - db
-    #      - rabbitmq
-    #      - worker
-    #      - scheduler
+      - rabbitmq
+      - worker
+      - scheduler
     networks:
       - backend
     volumes:
@@ -54,71 +55,69 @@ services:
     networks:
       - backend
 
-#  flower:
-#    image: mher/flower
-#    container_name: celery_flower
-#    env_file:
-#      - ./.env
-#    ports:
-#      - "8888:8888"
-#      - "5555:5555"
-#    networks:
-#      - backend
-#    depends_on:
-#      - rabbitmq
-#      - worker
-#      - scheduler
-#
-#  rabbitmq:
-#    image: rabbitmq:3.8-management
-#    container_name: rabbitmq
-#    hostname: rabbitmq
-#    ports:
-#      - "5672:5672"
-#      - "15672:15672"
-#    volumes:
-#      - rabbitmq_data:/var/lib/rabbitmq/
-#    env_file:
-#      - ./.env
-#    networks:
-#      - backend
-#    restart: always
-#
-#  worker:
-#    build:
-#      context: .
-#      dockerfile: ./Dockerfile
-#    container_name: worker
-#    hostname: worker
-#    command: celery -A celery_app.celery_app worker --loglevel=info
-#    env_file:
-#      - ./.env
-#    depends_on:
-#      - db
-#      - rabbitmq
-#    volumes:
-#      - .:/var/www/
-#    networks:
-#      - backend
-#    restart: always
-#
-#  scheduler:
-#    build:
-#      context: .
-#      dockerfile: ./Dockerfile
-#    container_name: scheduler
-#    hostname: scheduler
-#    command: celery -A celery_app.celery_app beat --loglevel=info
-#    env_file:
-#      - ./.env
-#    depends_on:
-#      - db
-#      - rabbitmq
-#    volumes:
-#      - .:/var/www/
-#    networks:
-#      - backend
-#    restart: always
+  flower:
+    image: mher/flower
+    container_name: celery_flower
+    env_file:
+      - ./.env
+    ports:
+      - "8888:8888"
+      - "5555:5555"
+    networks:
+      - backend
+    depends_on:
+      - rabbitmq
+      - worker
+      - scheduler
+
+  rabbitmq:
+    image: rabbitmq:3.8-management
+    container_name: rabbitmq
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq/
+    env_file:
+      - ./.env
+    networks:
+      - backend
+    restart: always
+
+  worker:
+    build:
+      context: ./notifications
+    container_name: worker
+    hostname: worker
+    command: celery -A notifications.celery_app worker --loglevel=info
+    env_file:
+      - ./.env
+    depends_on:
+      - db
+      - rabbitmq
+    volumes:
+      - .:/var/www/
+    networks:
+      - backend
+    restart: always
+
+  scheduler:
+    build:
+      context: ./notifications
+    container_name: scheduler
+    hostname: scheduler
+    command: celery -A notifications.celery_app beat --loglevel=info
+    env_file:
+      - ./.env
+    depends_on:
+      - db
+      - rabbitmq
+    volumes:
+      - .:/var/www/
+    networks:
+      - backend
+    restart: always
 
 networks:
   backend:

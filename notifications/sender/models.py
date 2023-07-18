@@ -22,5 +22,5 @@ class Message(models.Model):
     status = models.CharField(max_length=20,
                               choices=StarusChoise.choices,
                               default=StarusChoise.CREATED)
-    dispatch = models.ForeignKey(Notification, on_delete=models.CASCADE)
+    dispatch = models.ForeignKey(Notification, on_delete=models.CASCADE, related_name='messages')
     client = models.ForeignKey(Client, on_delete=models.CASCADE)
