@@ -6,8 +6,7 @@ services:
       context: ./notifications
       dockerfile: Dockerfile
     command: >
-      sh -c " python3 notifications/manage.py makemigrations
-              python3 notifications/manage.py migrate
+      sh -c " python3 notifications/manage.py migrate
               python3 notifications/manage.py runserver 0.0.0.0:8000"
     container_name: backend
     hostname: backend
@@ -97,7 +96,7 @@ services:
       - db
       - rabbitmq
     volumes:
-      - .:/var/www/
+      - ./notifications:/var/www/
     networks:
       - backend
     restart: always
@@ -114,7 +113,7 @@ services:
       - db
       - rabbitmq
     volumes:
-      - .:/var/www/
+      - ./notifications:/var/www/
     networks:
       - backend
     restart: always

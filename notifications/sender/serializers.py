@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Notification, Message
 
+
 class NotificationSerializer(serializers.Serializer):
     id = serializers.IntegerField(label='ID', read_only=True, required=False)
     start_time = serializers.DateTimeField()
@@ -11,12 +12,20 @@ class NotificationSerializer(serializers.Serializer):
     def validate_filter(self, value):
         if not isinstance(value, dict):
             raise serializers.ValidationError("Filter must be a dictionary")
-        if value.keys() != ["tag", "operator_code"]:
+        if list(value.keys()) != ["tag", "operator_code"]:
             raise serializers.ValidationError("Filter must contain 'tag' and 'operator_code'")
-        if not isinstance(value['tag'], str):
-            raise serializers.ValidationError("Filter tag must be a string")
-        if not isinstance(value['operator_code'], int):
-            raise serializers.ValidationError("Filter operator_code must be a integer")
+        if not isinstance(value['tag'], list) and not value['tag'] is None:
+            raise serializers.ValidationError("Filter tag must be a list of strings or None")
+        if not value['tag'] is None and not len(value['tag']) > 0 and not isinstance(value['tag'][0], str):
+            raise serializers.ValidationError("Filter tag list must contain elements, and elements must be strings")
+
+        if not isinstance(value['operator_code'], list) and not value['operator_code'] is None:
+            raise serializers.ValidationError("Filter operator_code must be a list of integers or None")
+        if not value['operator_code'] is None and len(value['operator_code']) > 0 and not isinstance(
+                value['operator_code'][0], int):
+            raise serializers.ValidationError(
+                "Filter operator_code list must contain elements, and elements must be integers")
+
         return value
 
     def validate(self, data):
@@ -35,7 +44,20 @@ class NotificationSerializer(serializers.Serializer):
             setattr(instance, key, value)
         instance.save()
 
+
 class MessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
         fields = '__all__'
+
+
+class NotificationInfoSerializer(serializers.ModelSerializer):
+    messages = MessageSerializer(many=True)
+    created_count = serializers.IntegerField()
+    processing_count = serializers.IntegerField()
+    complete_count = serializers.IntegerField()
+    error_count = serializers.IntegerField()
+
+    class Meta:
+        model = Notification
+        fields = ['id', 'start_time','end_time','message_text', 'created_count', 'processing_count', 'complete_count', 'error_count', 'messages']

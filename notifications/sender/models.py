@@ -8,7 +8,7 @@ class Notification(models.Model):
     start_time = models.DateTimeField(default=timezone.now)
     end_time = models.DateTimeField()
     message_text = models.TextField(max_length=255)
-    filer = models.JSONField()
+    filter = models.JSONField()
 
 
 class Message(models.Model):

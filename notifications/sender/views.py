@@ -1,18 +1,30 @@
+import json
+
+from celery.bin.control import inspect
+from django.contrib.auth.models import Permission
 from django.db.models import Count, FilteredRelation, Q, Prefetch
+from drf_spectacular.utils import extend_schema
 from rest_framework import viewsets, views, status
+from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
 
 from notifications import celery_app
 from .tasks import send_messages
 from django_celery_results.models import TaskResult
 
-from sender.models import Message, Notification
-from sender.serializers import NotificationSerializer, MessageSerializer
+from .models import Message, Notification
+from .serializers import NotificationSerializer, MessageSerializer, NotificationInfoSerializer
 
 
 class NotificationViewSet(viewsets.ModelViewSet):
+    permission_classes = [AllowAny]
     queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
+
+    @extend_schema(
+
+    )
 
     def create(self, request):
         serializer = self.get_serializer(data=request.data)
@@ -21,62 +33,51 @@ class NotificationViewSet(viewsets.ModelViewSet):
 
         start = instance.start_time
         end_time = instance.end_time
-        send_messages.apply_async((instance), eta=instance.start_time, time_limit=(end_time - start).total_seconds())
-        return serializer.data
+        send_messages.apply_async((instance.pk, instance.filter, instance.message_text), eta=instance.start_time, time_limit=(end_time - start).total_seconds())
+        return Response(data=serializer.data, status=status.HTTP_201_CREATED)
 
-    def destroy(self, request):
-        instance = self.get_object()
-        results = TaskResult.objects.filter(
-            task_args=(instance,)
-        ).exclude(
-            status='SUCCESS'
-        )
-        for result in results:
-            celery_app.app.control.revoke(task_id=result.task_id)
+    def destroy(self, request, pk):
+        instance = get_object_or_404(Notification, pk=pk)
+        # instance = Notification.objects.get(pk=pk)
+        i = celery_app.control.inspect().scheduled()
+        # print(json.dumps(i, indent=4))
+        tasks = i['celery@worker']
+
+        for j in tasks:
+            if j['request']['args'][0] == pk:
+                celery_app.control.revoke(task_id=j['request']['id'])
+
         self.perform_destroy(instance)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class MessageViewSet(viewsets.ModelViewSet):
+    permission_classes = [AllowAny]
     queryset = Message.objects.all()
     serializer_class = MessageSerializer
 
 
 class NotificationListStatistics(views.APIView):
+    permission_classes = [AllowAny]
 
     def get(self, request):
-        notifications = Notification.objects.annotate(
-            created_count=Count('messages', filter=FilteredRelation('messages', condition=Q(
-                messages__status=Message.StarusChoise.CREATED))),
-            processing_count=Count('messages', filter=FilteredRelation('messages', condition=Q(
-                messages__status=Message.StarusChoise.PROCESSING))),
-            complete_count=Count('messages', filter=FilteredRelation('messages', condition=Q(
-                messages__status=Message.StarusChoise.COMPLETE))),
-            error_count=Count('messages', filter=FilteredRelation('messages', condition=Q(
-                messages__status=Message.StarusChoise.ERROR))),
-        ).values('id', 'start_time', 'end_time', 'message_text', 'filer', 'created_count', 'processing_count',
-                 'complete_count', 'error_count')
-
-        return Response(notifications)
+        notifications = Notification.objects.values('id', 'start_time', 'end_time', 'message_text').annotate(
+            created_count=Count('messages', filter=Q(messages__status=Message.StarusChoise.CREATED)),
+            processing_count=Count('messages', filter=Q(messages__status=Message.StarusChoise.PROCESSING)),
+            complete_count=Count('messages', filter=Q(messages__status=Message.StarusChoise.COMPLETE)),
+            error_count=Count('messages', filter=Q(messages__status=Message.StarusChoise.ERROR)),
+        )
+        return Response(notifications, status=200)
 
 
 class NotificationStatistics(views.APIView):
-    def get(self, request, id):
-        notifications = Notification.objects.prefetch_related(
-            Prefetch(
-                'messages',
-                queryset=Message.objects.order_by('status'),
-                to_attr='grouped_messages',
-            ),
-        ).annotate(
-            created_count=Count('messages', filter=FilteredRelation('messages', condition=Q(
-                messages__status=Message.StarusChoise.CREATED))),
-            processing_count=Count('messages', filter=FilteredRelation('messages', condition=Q(
-                messages__status=Message.StarusChoise.PROCESSING))),
-            complete_count=Count('messages', filter=FilteredRelation('messages', condition=Q(
-                messages__status=Message.StarusChoise.COMPLETE))),
-            error_count=Count('messages', filter=FilteredRelation('messages', condition=Q(
-                messages__status=Message.StarusChoise.ERROR))),
-        ).filter(id=id)
-
-        return Response(notifications)
+    permission_classes = [AllowAny]
+    def get(self, request, pk):
+        notifications = Notification.objects.prefetch_related('messages').annotate(
+            created_count=Count('messages', filter=Q(messages__status=Message.StarusChoise.CREATED)),
+            processing_count=Count('messages', filter=Q(messages__status=Message.StarusChoise.PROCESSING)),
+            complete_count=Count('messages', filter=Q(messages__status=Message.StarusChoise.COMPLETE)),
+            error_count=Count('messages', filter=Q(messages__status=Message.StarusChoise.ERROR)),
+        ).filter(pk=pk)
+        print(notifications[0].__dict__)
+        return Response(NotificationInfoSerializer(notifications, many=True).data, status=200)
