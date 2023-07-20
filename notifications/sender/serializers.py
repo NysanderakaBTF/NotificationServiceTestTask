@@ -29,8 +29,10 @@ class NotificationSerializer(serializers.Serializer):
         return value
 
     def validate(self, data):
-        if data['start_time'] > data['end_time']:
-            raise serializers.ValidationError("end must occur after start")
+        if 'start_time' in data.keys() and 'end_time' in data.keys():
+            if data['start_time'] > data['end_time']:
+                raise serializers.ValidationError("end must occur after start")
+            return data
         return data
 
     def create(self, validated_data):
@@ -43,6 +45,7 @@ class NotificationSerializer(serializers.Serializer):
                 continue
             setattr(instance, key, value)
         instance.save()
+        return instance
 
 
 class MessageSerializer(serializers.ModelSerializer):
