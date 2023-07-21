@@ -191,13 +191,12 @@ REST_AUTH = {
 
 ACCOUNT_EMAIL_VERIFICATION = "none"
 
-
-
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Notification sending API',
     'DESCRIPTION': 'API that allows to manage clients and create notification sending tasks, that sends messages to '
                    'clients, based on filter by tag and mobile operator codes',
     'VERSION': '0.0.1',
     'SERVE_INCLUDE_SCHEMA': False,
+    'PREPROCESSING_HOOKS':['notifications.urls.custom_preprocessing_hook']
 
 }

@@ -14,8 +14,10 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+import dj_rest_auth.jwt_auth
 from django.contrib import admin
 from django.urls import path, include
+from drf_spectacular.extensions import OpenApiAuthenticationExtension
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
 urlpatterns = [
@@ -31,3 +33,14 @@ urlpatterns = [
     path('docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 ]
+
+
+def custom_preprocessing_hook(endpoints):
+    a = []
+    for (path, path_regex, method, callback) in endpoints:
+        # print(path)
+        if not path.startswith('/auth'):
+            a.append((path, path_regex, method, callback))
+        elif path in ['/auth/login/', '/auth/logout/', '/auth/registration/']:
+            a.append((path, path_regex, method, callback))
+    return a
