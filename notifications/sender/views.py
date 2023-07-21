@@ -35,9 +35,6 @@ class NotificationViewSet(viewsets.ModelViewSet):
         description="Get list of notifications",
         summary="Get notifications list",
         auth=None,
-        parameters=[
-            OpenApiParameter("id", OpenApiTypes.INT, OpenApiParameter.PATH, description="Id of the notification")
-        ],
     )
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
